@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { createDb, rideAssignments, rides } from "@ride/db";
+import { createDb, rideAssignments, rides, users } from "@ride/db";
 import { eq } from "drizzle-orm";
 import type { FastifyInstance } from "fastify";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -138,6 +138,21 @@ describe("POST /rides/:id/accept", () => {
     });
 
     expect(response.statusCode).toBe(422);
+  });
+
+  it("returns 422 DRIVER_NOT_ELIGIBLE when the driver's account was disabled after login", async () => {
+    const ride = await createRequestedRide();
+    const { user, token } = await driverToken();
+    await db.update(users).set({ isActive: false }).where(eq(users.id, user.id));
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/api/v1/rides/${ride.id}/accept`,
+      headers: bearer(token),
+    });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.json().error.code).toBe("DRIVER_NOT_ELIGIBLE");
   });
 
   it("returns 409 RIDE_ALREADY_ACCEPTED when accepting an already-accepted ride", async () => {

@@ -19,7 +19,7 @@ import {
   isWithinBounds,
   transition,
 } from "@ride/domain";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import {
   ApiError,
   activeRideExists,
@@ -194,42 +194,56 @@ export async function createRide(
 
   const requestHash = hashRequestBody(input);
 
-  const { rideId, created } = await db.transaction(async (tx) => {
-    const [existing] = await tx
-      .select()
-      .from(rides)
-      .where(and(eq(rides.riderId, rider.id), eq(rides.idempotencyKey, idempotencyKey)))
-      .limit(1);
-    if (existing) {
-      if (existing.requestHash !== requestHash) throw idempotencyKeyReused();
-      return { rideId: existing.id, created: false };
-    }
+  let rideId: string;
+  let created: boolean;
 
-    const [activeRide] = await tx
-      .select({ id: rides.id })
-      .from(rides)
-      .where(and(eq(rides.riderId, rider.id), inArray(rides.status, ACTIVE_RIDE_STATUSES)))
-      .limit(1);
-    if (activeRide) throw activeRideExists();
+  try {
+    const result = await db.transaction(async (tx) => {
+      // A single query for both checks: reading them as two separate statements would let a
+      // commit land in the gap between them, so a late duplicate's first check (idempotency key)
+      // misses the winner but its second check (active ride) then sees that same winning row and
+      // misreads its own duplicate as a conflicting ride.
+      const conflicts = await tx
+        .select({
+          id: rides.id,
+          idempotencyKey: rides.idempotencyKey,
+          requestHash: rides.requestHash,
+        })
+        .from(rides)
+        .where(
+          and(
+            eq(rides.riderId, rider.id),
+            or(
+              eq(rides.idempotencyKey, idempotencyKey),
+              inArray(rides.status, ACTIVE_RIDE_STATUSES),
+            ),
+          ),
+        );
 
-    const [pkg] = await tx
-      .select()
-      .from(ridePackages)
-      .where(
-        and(
-          eq(ridePackages.cityId, city.id),
-          eq(ridePackages.category, input.category),
-          eq(ridePackages.isActive, true),
-        ),
-      )
-      .limit(1);
-    if (!pkg) {
-      throw validationError(`No active ${input.category} package in this city`);
-    }
+      const existing = conflicts.find((row) => row.idempotencyKey === idempotencyKey);
+      if (existing) {
+        if (existing.requestHash !== requestHash) throw idempotencyKeyReused();
+        return { rideId: existing.id, created: false };
+      }
+      if (conflicts.length > 0) throw activeRideExists();
 
-    const fareEstimate = estimateFare(input.pickup, input.dropoff, pkg);
+      const [pkg] = await tx
+        .select()
+        .from(ridePackages)
+        .where(
+          and(
+            eq(ridePackages.cityId, city.id),
+            eq(ridePackages.category, input.category),
+            eq(ridePackages.isActive, true),
+          ),
+        )
+        .limit(1);
+      if (!pkg) {
+        throw validationError(`No active ${input.category} package in this city`);
+      }
 
-    try {
+      const fareEstimate = estimateFare(input.pickup, input.dropoff, pkg);
+
       const [ride] = await tx
         .insert(rides)
         .values({
@@ -251,23 +265,25 @@ export async function createRide(
       await tx.insert(fares).values({ rideId: ride.id, ...fareEstimate });
 
       return { rideId: ride.id, created: true };
-    } catch (error) {
-      if (!isUniqueViolation(error)) throw error;
+    });
+    rideId = result.rideId;
+    created = result.created;
+  } catch (error) {
+    if (!isUniqueViolation(error)) throw error;
 
-      // Lost a race to a concurrent request: find out which one and resolve the same way a
-      // sequential retry would.
-      const [raced] = await tx
-        .select()
-        .from(rides)
-        .where(and(eq(rides.riderId, rider.id), eq(rides.idempotencyKey, idempotencyKey)))
-        .limit(1);
-      if (raced) {
-        if (raced.requestHash !== requestHash) throw idempotencyKeyReused();
-        return { rideId: raced.id, created: false };
-      }
-      throw activeRideExists();
-    }
-  });
+    // Lost a race to a concurrent request. The failed insert aborted that transaction (Postgres
+    // rejects further statements on it), so resolve the race in a fresh query instead of reusing
+    // `tx`, the same way a sequential retry would.
+    const [raced] = await db
+      .select()
+      .from(rides)
+      .where(and(eq(rides.riderId, rider.id), eq(rides.idempotencyKey, idempotencyKey)))
+      .limit(1);
+    if (!raced) throw activeRideExists();
+    if (raced.requestHash !== requestHash) throw idempotencyKeyReused();
+    rideId = raced.id;
+    created = false;
+  }
 
   const detail = await requireRideDetail(db, rideId);
   return { detail, created };
