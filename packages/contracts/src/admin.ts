@@ -41,6 +41,22 @@ export const UpdateDriverStatusResponseSchema = z.object({
 });
 export type UpdateDriverStatusResponse = z.infer<typeof UpdateDriverStatusResponseSchema>;
 
+export const AdminDriversResponseSchema = z.object({
+  drivers: z.array(DriverAdminSchema),
+});
+export type AdminDriversResponse = z.infer<typeof AdminDriversResponseSchema>;
+
+export const AdminCitySchema = z.object({
+  id: IdSchema,
+  name: z.string(),
+});
+export type AdminCity = z.infer<typeof AdminCitySchema>;
+
+export const AdminCitiesResponseSchema = z.object({
+  cities: z.array(AdminCitySchema),
+});
+export type AdminCitiesResponse = z.infer<typeof AdminCitiesResponseSchema>;
+
 export const RidePackageSchema = z.object({
   id: IdSchema,
   cityId: IdSchema,

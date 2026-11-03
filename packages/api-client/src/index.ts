@@ -1,4 +1,8 @@
 import {
+  type AdminCitiesResponse,
+  AdminCitiesResponseSchema,
+  type AdminDriversResponse,
+  AdminDriversResponseSchema,
   type AdminRideListQuery,
   type AdminRideListResponse,
   AdminRideListResponseSchema,
@@ -180,6 +184,14 @@ export class ApiClient {
 
   createDriver(body: CreateDriverRequest): Promise<CreateDriverResponse> {
     return this.request("POST", "/admin/drivers", CreateDriverResponseSchema, { body });
+  }
+
+  listDrivers(): Promise<AdminDriversResponse> {
+    return this.request("GET", "/admin/drivers", AdminDriversResponseSchema);
+  }
+
+  listCities(): Promise<AdminCitiesResponse> {
+    return this.request("GET", "/admin/cities", AdminCitiesResponseSchema);
   }
 
   setDriverActive(

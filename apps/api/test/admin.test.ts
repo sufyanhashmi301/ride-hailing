@@ -124,6 +124,68 @@ describe("admin routes", () => {
     });
   });
 
+  describe("GET /admin/drivers", () => {
+    it("lists created drivers", async () => {
+      const create = await app.inject({
+        method: "POST",
+        url: "/api/v1/admin/drivers",
+        headers: bearer(adminToken),
+        payload: newDriverPayload(),
+      });
+      const { driver } = create.json();
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/admin/drivers",
+        headers: bearer(adminToken),
+      });
+
+      expect(response.statusCode).toBe(200);
+      const ids = response.json().drivers.map((d: { userId: string }) => d.userId);
+      expect(ids).toContain(driver.userId);
+    });
+
+    it("rejects non-admin callers", async () => {
+      const rider = await seedUser(db, "rider");
+      const token = await loginAs(app, rider.email);
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/admin/drivers",
+        headers: bearer(token),
+      });
+
+      expect(response.statusCode).toBe(403);
+    });
+  });
+
+  describe("GET /admin/cities", () => {
+    it("lists active cities", async () => {
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/admin/cities",
+        headers: bearer(adminToken),
+      });
+
+      expect(response.statusCode).toBe(200);
+      const ids = response.json().cities.map((c: { id: string }) => c.id);
+      expect(ids).toContain(cityId);
+    });
+
+    it("rejects non-admin callers", async () => {
+      const rider = await seedUser(db, "rider");
+      const token = await loginAs(app, rider.email);
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/admin/cities",
+        headers: bearer(token),
+      });
+
+      expect(response.statusCode).toBe(403);
+    });
+  });
+
   describe("PATCH /admin/drivers/:id", () => {
     it("disables a driver so they can no longer log in", async () => {
       const create = await app.inject({

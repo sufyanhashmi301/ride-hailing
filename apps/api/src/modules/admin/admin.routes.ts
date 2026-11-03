@@ -1,4 +1,6 @@
 import {
+  AdminCitiesResponseSchema,
+  AdminDriversResponseSchema,
   AdminRideListQuerySchema,
   AdminRideListResponseSchema,
   CreateDriverRequestSchema,
@@ -14,7 +16,14 @@ import type { Env } from "../../config/env.js";
 import { rateLimitConfig } from "../../lib/rate-limit.js";
 import { requireRole } from "../../plugins/rbac.js";
 import type { App } from "../../types.js";
-import { createDriver, listRides, setDriverActive, updatePackage } from "./admin.service.js";
+import {
+  createDriver,
+  listActiveCities,
+  listDrivers,
+  listRides,
+  setDriverActive,
+  updatePackage,
+} from "./admin.service.js";
 
 const DriverParamsSchema = z.object({ id: z.uuid() });
 const PackageParamsSchema = z.object({ id: z.uuid() });
@@ -31,6 +40,28 @@ export function registerAdminRoutes(app: App, db: Db, env: Env) {
       const result = await createDriver(db, request.body);
       reply.code(201);
       return result;
+    },
+  });
+
+  app.get("/api/v1/admin/drivers", {
+    preHandler: requireRole("admin"),
+    schema: {
+      response: { 200: AdminDriversResponseSchema },
+    },
+    handler: async () => {
+      const drivers = await listDrivers(db);
+      return { drivers };
+    },
+  });
+
+  app.get("/api/v1/admin/cities", {
+    preHandler: requireRole("admin"),
+    schema: {
+      response: { 200: AdminCitiesResponseSchema },
+    },
+    handler: async () => {
+      const activeCities = await listActiveCities(db);
+      return { cities: activeCities };
     },
   });
 

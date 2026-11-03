@@ -110,6 +110,24 @@ export async function createDriver(
   }
 }
 
+export async function listDrivers(db: Db): Promise<DriverAdmin[]> {
+  const rows = await db
+    .select({ user: users, driver: drivers })
+    .from(users)
+    .innerJoin(drivers, eq(drivers.userId, users.id))
+    .orderBy(users.name);
+
+  return rows.map((row) => toDriverAdminDto(row.user, row.driver));
+}
+
+export async function listActiveCities(db: Db) {
+  return db
+    .select({ id: cities.id, name: cities.name })
+    .from(cities)
+    .where(eq(cities.isActive, true))
+    .orderBy(cities.name);
+}
+
 export async function setDriverActive(
   db: Db,
   driverId: string,
