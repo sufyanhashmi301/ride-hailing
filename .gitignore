@@ -6,6 +6,10 @@ dist
 .next
 coverage
 .turbo
+test-results
+playwright-report
+blob-report
+playwright/.cache
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
 CLAUDE.local.md
