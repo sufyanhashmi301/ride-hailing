@@ -337,9 +337,10 @@ What this build deliberately does not do, and what would change first if it need
   deployment swaps `places.service.ts`'s query for a geocoding API call behind the same
   `GET /places` contract, so nothing downstream (the DTO shape, the autocomplete component) needs
   to change.
-- **No admin API or page yet** — the plan's P1 scope (add/disable drivers, pricing, a ride list)
-  is cut per the plan's own stated priority order ("cut UI polish and the admin page first") and
-  is tracked as not-started in `PROGRESS.md`, not silently dropped.
+- **Admin is deliberately thin** — `/api/v1/admin/*` covers add/enable/disable drivers, rate-card
+  edits, a paginated ride list and summary stats, with matching `/admin` pages (Phases 8-9 in
+  `PROGRESS.md`). There is no audit log of admin actions, no driver document verification and no
+  bulk operations; those are what a real operations team would ask for next.
 - **No driver live-location stream** — `lastLat`/`lastLng` are set once at seed/login, not updated
   continuously. ETA-to-pickup is therefore a reasonable estimate at request time, not a live
   tracking feature; a driver app pushing periodic location updates is additive on top of the
