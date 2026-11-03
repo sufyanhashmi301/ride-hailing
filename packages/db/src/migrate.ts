@@ -1,6 +1,4 @@
-import { drizzle } from "drizzle-orm/node-postgres";
-import { migrate } from "drizzle-orm/node-postgres/migrator";
-import { Pool } from "pg";
+import { migrateDatabase } from "./migrate-runtime.js";
 
 try {
   process.loadEnvFile();
@@ -13,10 +11,5 @@ if (!databaseUrl) {
   throw new Error("DATABASE_URL is not set");
 }
 
-const pool = new Pool({ connectionString: databaseUrl });
-const db = drizzle(pool);
-
-await migrate(db, { migrationsFolder: "./migrations" });
+await migrateDatabase(databaseUrl);
 console.log("Migrations applied");
-
-await pool.end();

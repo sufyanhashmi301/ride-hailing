@@ -24,7 +24,13 @@ export function registerErrorHandler(app: FastifyInstance) {
 
   app.setErrorHandler((error: FastifyError, request, reply) => {
     const statusCode = error.statusCode ?? 500;
-    const code = statusCode === 500 ? "INTERNAL_ERROR" : (error.code ?? "ERROR");
+    const isValidationError = error.code === "FST_ERR_VALIDATION";
+    const code = isValidationError
+      ? "VALIDATION_ERROR"
+      : statusCode === 500
+        ? "INTERNAL_ERROR"
+        : (error.code ?? "ERROR");
+    const details = isValidationError ? { issues: error.validation ?? [] } : readDetails(error);
 
     if (statusCode >= 500) {
       request.log.error({ err: error, requestId: request.id }, "unhandled error");
@@ -36,10 +42,23 @@ export function registerErrorHandler(app: FastifyInstance) {
       error: {
         code,
         message: statusCode >= 500 ? "Internal server error" : error.message,
-        details: {},
+        details,
         requestId: request.id,
       },
     };
     reply.status(statusCode).send(body);
   });
+}
+
+function readDetails(error: unknown): Record<string, unknown> {
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "details" in error &&
+    typeof (error as { details?: unknown }).details === "object" &&
+    (error as { details?: unknown }).details !== null
+  ) {
+    return (error as { details: Record<string, unknown> }).details;
+  }
+  return {};
 }

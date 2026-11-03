@@ -1,13 +1,24 @@
+import fastifyCookie from "@fastify/cookie";
+import fastifyHelmet from "@fastify/helmet";
+import fastifyRateLimit from "@fastify/rate-limit";
+import fastifySensible from "@fastify/sensible";
 import {
   serializerCompiler,
   validatorCompiler,
   type ZodTypeProvider,
 } from "@fastify/type-provider-zod";
+import { createDb } from "@ride/db";
+import { sql } from "drizzle-orm";
 import Fastify from "fastify";
-import { Pool } from "pg";
 import { z } from "zod";
 import type { Env } from "./config/env.js";
+import { registerAuthRoutes } from "./modules/auth/auth.routes.js";
+import { registerDriversRoutes } from "./modules/drivers/drivers.routes.js";
+import { registerPlacesRoutes } from "./modules/places/places.routes.js";
+import { registerRidesRoutes } from "./modules/rides/rides.routes.js";
+import { registerAuth } from "./plugins/auth.js";
 import { registerErrorHandler } from "./plugins/errors.js";
+import { registerOriginCheck } from "./plugins/origin-check.js";
 import { generateRequestId, registerRequestId } from "./plugins/request-id.js";
 import { registerSwagger } from "./plugins/swagger.js";
 
@@ -27,10 +38,32 @@ export async function buildApp(env: Env) {
   registerErrorHandler(app);
   await registerSwagger(app);
 
-  const pool = new Pool({ connectionString: env.DATABASE_URL });
-  app.addHook("onClose", async () => {
-    await pool.end();
+  await app.register(fastifyHelmet, { contentSecurityPolicy: false });
+  await app.register(fastifyCookie);
+  await app.register(fastifySensible);
+
+  // Decorates request.user from the session cookie or a Bearer token (onRequest phase, so it
+  // always runs before any preHandler, including the rate limiter below).
+  registerAuth(app, env);
+  registerOriginCheck(app, env);
+
+  await app.register(fastifyRateLimit, {
+    global: true,
+    hook: "preHandler",
+    max: 300,
+    timeWindow: "1 minute",
+    keyGenerator: (request) => request.user?.sub ?? request.ip,
   });
+
+  const db = createDb(env.DATABASE_URL);
+  app.addHook("onClose", async () => {
+    await db.$client.end();
+  });
+
+  registerAuthRoutes(app, db, env);
+  registerPlacesRoutes(app, db);
+  registerRidesRoutes(app, db, env);
+  registerDriversRoutes(app, db, env);
 
   app.get("/api/v1/health/live", {
     schema: {
@@ -48,7 +81,7 @@ export async function buildApp(env: Env) {
     },
     handler: async (_request, reply) => {
       try {
-        await pool.query("SELECT 1");
+        await db.execute(sql`select 1`);
         return { status: "ok" as const };
       } catch (error) {
         return reply.status(503).send({

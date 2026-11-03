@@ -10,6 +10,8 @@ export {
   roadDistanceMeters,
   travelTimeSeconds,
 } from "./fare.js";
+export type { BoundingBox } from "./geo.js";
+export { isWithinBounds } from "./geo.js";
 export type {
   Actor,
   RideAction,
