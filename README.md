@@ -68,9 +68,20 @@ or a `.claude/rules/*.md` file instead of relying on auto memory to remember it.
 documentation. The Postgres MCP server must only ever point at the local dev database — never at
 a staging or production connection string.
 
+## Limitations
+
+No real dispatch (drivers choose, nothing auto-assigns), polling instead of push for ride status,
+no automatic ride expiry, Haversine × 1.3 instead of real road routing, seeded places instead of a
+geocoding API, and no admin API/page yet (P1, cut first per the plan). Each of these is written up
+with what would change first in [`docs/architecture.md` §8](./docs/architecture.md#8-limitations-and-the-scaling-path-p2).
+Phase-by-phase status is in [`PROGRESS.md`](./PROGRESS.md).
+
 ## AI disclosure
 
-This project was built with Claude Code as a pair-programming tool. Scaffolding, schema design,
-API implementation, tests and docs were AI-assisted with human review at every phase; the
-development process (one phase at a time, stop-and-review, project-specific rules and skills) is
-captured in `.claude/`. A full disclosure with specifics lands in Phase 7.
+This project was built with Claude Code (Claude Sonnet 5) as a pair-programming tool, one phase of
+`Ride-Booking Platform Implementation Plan.md` at a time, with a human review gate between phases.
+The full disclosure — including the two cases where AI-written tests caught AI-written bugs, and
+the concurrency proof redone in Phase 6 — is in
+[`docs/architecture.md`'s "AI disclosure" section](./docs/architecture.md#ai-disclosure). The
+development process itself (one phase at a time, stop-and-review, project-specific rules and
+skills) is captured in `.claude/`.
