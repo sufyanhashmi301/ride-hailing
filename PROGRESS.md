@@ -14,7 +14,7 @@ rule in [CLAUDE.md](CLAUDE.md).
 | 5   | Rider and driver web | P0   | Done        | `ea6c45a` feat: build the rider and driver web app                                 |
 | 6   | Frontend tests       | P0   | Done        | `203e104` test: add frontend component and E2E tests, fix a real fetch-binding bug |
 | 7   | Docs                 | P0   | Done        | `366642a` docs: write up architecture, trim README, track phase progress           |
-| 8   | Admin APIs           | P1   | Not started | —                                                                                  |
+| 8   | Admin APIs           | P1   | Done        | _(uncommitted)_ add driver, enable/disable, package pricing, ride list + tests     |
 | 9   | Admin page           | P1   | Not started | —                                                                                  |
 
 ## Notes
@@ -30,4 +30,12 @@ rule in [CLAUDE.md](CLAUDE.md).
   setup; 2 moderate transitive advisories (`glob`/`minimatch` via `@fastify/swagger-ui`) and a
   log-redaction gap (no explicit pino `redact` config, though nothing currently logs a body or
   token) were reported but not fixed, per the skill's "report, don't fix" rule.
-- P1 (phases 8-9) is cut first if time runs short, per the plan's own priority order.
+- Phase 8 adds `admin.ts` under `packages/contracts`, `apps/api/src/modules/admin`, and matching
+  `api-client` methods, following the same routes/service layering as every other module.
+  `POST /admin/drivers` creates the user + driver row in one transaction with a generated
+  temporary password (never logged, returned once in the response); duplicate email/plate map to
+  new `EMAIL_ALREADY_EXISTS`/`VEHICLE_PLATE_ALREADY_EXISTS` 409s via the unique-constraint catch,
+  consistent with how `createRide` handles its own unique violations. `GET /admin/rides` uses
+  simple limit/offset pagination — a keyset cursor wasn't worth the complexity for a thin P1 admin
+  list.
+- P1 (phase 9, the admin page) is cut first if time runs short, per the plan's own priority order.

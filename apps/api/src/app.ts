@@ -12,6 +12,7 @@ import { sql } from "drizzle-orm";
 import Fastify from "fastify";
 import { z } from "zod";
 import type { Env } from "./config/env.js";
+import { registerAdminRoutes } from "./modules/admin/admin.routes.js";
 import { registerAuthRoutes } from "./modules/auth/auth.routes.js";
 import { registerDriversRoutes } from "./modules/drivers/drivers.routes.js";
 import { registerPlacesRoutes } from "./modules/places/places.routes.js";
@@ -64,6 +65,7 @@ export async function buildApp(env: Env) {
   registerPlacesRoutes(app, db);
   registerRidesRoutes(app, db, env);
   registerDriversRoutes(app, db, env);
+  registerAdminRoutes(app, db, env);
 
   app.get("/api/v1/health/live", {
     schema: {

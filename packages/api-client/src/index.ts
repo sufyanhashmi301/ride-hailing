@@ -1,7 +1,13 @@
 import {
+  type AdminRideListQuery,
+  type AdminRideListResponse,
+  AdminRideListResponseSchema,
   type AvailableRidesResponse,
   AvailableRidesResponseSchema,
   type CancelRideRequest,
+  type CreateDriverRequest,
+  type CreateDriverResponse,
+  CreateDriverResponseSchema,
   type CreateRideRequest,
   type CurrentRideResponse,
   CurrentRideResponseSchema,
@@ -22,6 +28,12 @@ import {
   type Ride,
   RideSchema,
   type UpdateDriverMeRequest,
+  type UpdateDriverStatusRequest,
+  type UpdateDriverStatusResponse,
+  UpdateDriverStatusResponseSchema,
+  type UpdatePackageRequest,
+  type UpdatePackageResponse,
+  UpdatePackageResponseSchema,
 } from "@ride/contracts";
 
 export class ApiClientError extends Error {
@@ -164,5 +176,32 @@ export class ApiClient {
 
   currentRide(): Promise<CurrentRideResponse> {
     return this.request("GET", "/driver/rides/current", CurrentRideResponseSchema);
+  }
+
+  createDriver(body: CreateDriverRequest): Promise<CreateDriverResponse> {
+    return this.request("POST", "/admin/drivers", CreateDriverResponseSchema, { body });
+  }
+
+  setDriverActive(
+    id: string,
+    body: UpdateDriverStatusRequest,
+  ): Promise<UpdateDriverStatusResponse> {
+    return this.request("PATCH", `/admin/drivers/${id}`, UpdateDriverStatusResponseSchema, {
+      body,
+    });
+  }
+
+  updatePackage(id: string, body: UpdatePackageRequest): Promise<UpdatePackageResponse> {
+    return this.request("PATCH", `/admin/packages/${id}`, UpdatePackageResponseSchema, { body });
+  }
+
+  adminRides(query: Partial<AdminRideListQuery> = {}): Promise<AdminRideListResponse> {
+    return this.request("GET", "/admin/rides", AdminRideListResponseSchema, {
+      query: {
+        status: query.status,
+        limit: query.limit?.toString(),
+        offset: query.offset?.toString(),
+      },
+    });
   }
 }
