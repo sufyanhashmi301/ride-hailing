@@ -1,0 +1,26 @@
+{
+  "name": "ride-platform",
+  "private": true,
+  "packageManager": "pnpm@11.24.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "test:e2e": "pnpm --filter @ride/web test:e2e",
+    "db:generate": "pnpm --filter @ride/db db:generate",
+    "db:migrate": "pnpm --filter @ride/db db:migrate",
+    "db:seed": "pnpm --filter @ride/db db:seed"
+  },
+  "devDependencies": {
+    "turbo": "2.11.10",
+    "typescript": "7.0.2",
+    "@biomejs/biome": "2.6.4",
+    "vitest": "5.0.5"
+  }
+}

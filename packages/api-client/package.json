@@ -1,0 +1,18 @@
+{
+  "name": "@ride/api-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@ride/contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}
