@@ -1,76 +1,116 @@
 "use client";
 
-import type { Ride } from "@ride/contracts";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
+import type { RideStatus } from "@ride/contracts";
+import { CarIcon, CheckCircle2Icon, PlusIcon, XCircleIcon } from "lucide-react";
+import Link from "next/link";
+import { PageHeader } from "@/components/common/page-header";
+import { StatsCard } from "@/components/common/stats-card";
+import { buttonVariants } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RideRequestForm } from "@/features/rides/ride-request-form";
-import { RideStatusCard } from "@/features/rides/ride-status-card";
-import { useRide } from "@/hooks/use-ride";
-import { apiClient } from "@/lib/api";
+import { RideStatusBadge } from "@/features/rides/ride-status-badge";
+import { useRideHistory } from "@/hooks/use-ride";
 
-const TERMINAL_STATUSES = new Set(["completed", "cancelled", "expired"]);
+const ACTIVE_STATUSES: ReadonlySet<RideStatus> = new Set(["requested", "accepted"]);
 
-export default function RiderPage() {
-  const [rideId, setRideId] = useState<string | null>(null);
-  const rideQuery = useRide(rideId);
-  const queryClient = useQueryClient();
+export default function RiderDashboardPage() {
+  const rides = useRideHistory({ limit: 20 });
+  const rows = rides.data?.rides ?? [];
+  const activeRide = rows.find((ride) => ACTIVE_STATUSES.has(ride.status));
+  const completedCount = rows.filter((ride) => ride.status === "completed").length;
+  const cancelledCount = rows.filter((ride) => ride.status === "cancelled").length;
 
-  const cancelRide = useMutation({
-    mutationFn: () => apiClient.cancelRide(rideId as string),
-    onSuccess: (ride) => {
-      queryClient.setQueryData(["rides", rideId], ride);
-    },
-  });
-
-  if (!rideId) {
-    return (
-      <div className="mx-auto max-w-xl">
-        <RideRequestForm onRideCreated={(ride: Ride) => setRideId(ride.id)} />
-      </div>
-    );
-  }
+  const recentRidesCard = (
+    <Card>
+      <CardHeader>
+        <CardTitle>Recent rides</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-1">
+        {rides.isLoading && (
+          <div className="flex flex-col gap-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+        )}
+        {rides.isError && (
+          <p className="text-sm text-muted-foreground">Couldn't load your rides.</p>
+        )}
+        {!rides.isLoading && rows.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            No rides yet. Book your first ride to get started.
+          </p>
+        )}
+        {rows.slice(0, 5).map((ride) => (
+          <Link
+            key={ride.id}
+            href="/rider/history"
+            className="flex items-center justify-between gap-3 rounded-md px-1 py-2 text-sm hover:bg-muted/50"
+          >
+            <div className="min-w-0">
+              <p className="truncate font-medium">{ride.pickup.label}</p>
+              <p className="truncate text-xs text-muted-foreground">{ride.dropoff.label}</p>
+            </div>
+            <RideStatusBadge status={ride.status} />
+          </Link>
+        ))}
+      </CardContent>
+    </Card>
+  );
 
   return (
-    <div className="mx-auto flex max-w-xl flex-col gap-4">
-      {rideQuery.isLoading && <Skeleton className="h-64 w-full" />}
+    <div className="flex flex-col gap-6">
+      <PageHeader
+        title="Dashboard"
+        description="An overview of your rides."
+        actions={
+          <Link href="/rider/book" className={buttonVariants()}>
+            <PlusIcon className="size-4" />
+            Book a ride
+          </Link>
+        }
+      />
 
-      {rideQuery.isError && (
-        <div className="rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
-          <p>Couldn't load your ride.</p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="mt-2"
-            onClick={() => rideQuery.refetch()}
-          >
-            Retry
-          </Button>
-        </div>
-      )}
-
-      {rideQuery.data && (
-        <RideStatusCard
-          ride={rideQuery.data}
-          actions={
-            TERMINAL_STATUSES.has(rideQuery.data.status) ? (
-              <Button type="button" onClick={() => setRideId(null)}>
-                Request another ride
-              </Button>
-            ) : (
-              <Button
-                type="button"
-                variant="outline"
-                disabled={cancelRide.isPending}
-                onClick={() => cancelRide.mutate()}
-              >
-                {cancelRide.isPending ? "Cancelling…" : "Cancel ride"}
-              </Button>
-            )
-          }
+      <div className="grid gap-3 sm:grid-cols-3">
+        <StatsCard label="Total rides" value={rides.isLoading ? "—" : rows.length} icon={CarIcon} />
+        <StatsCard
+          label="Completed"
+          value={rides.isLoading ? "—" : completedCount}
+          icon={CheckCircle2Icon}
         />
+        <StatsCard
+          label="Cancelled"
+          value={rides.isLoading ? "—" : cancelledCount}
+          icon={XCircleIcon}
+        />
+      </div>
+
+      {activeRide ? (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card>
+            <CardHeader className="flex-row items-center justify-between">
+              <CardTitle>Active ride</CardTitle>
+              <RideStatusBadge status={activeRide.status} />
+            </CardHeader>
+            <CardContent className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="truncate font-medium">{activeRide.pickup.label}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  → {activeRide.dropoff.label}
+                </p>
+              </div>
+              <Link
+                href="/rider/book"
+                className={buttonVariants({ variant: "outline", size: "sm" })}
+              >
+                Track ride
+              </Link>
+            </CardContent>
+          </Card>
+          {recentRidesCard}
+        </div>
+      ) : (
+        recentRidesCard
       )}
     </div>
   );

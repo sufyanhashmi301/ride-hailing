@@ -97,4 +97,24 @@ describe("AvailableRidesList", () => {
 
     await waitFor(() => expect(apiClient.acceptRide).toHaveBeenCalledWith("ride-1"));
   });
+
+  it("shows the server's message and refreshes the list when another driver won the ride", async () => {
+    const user = userEvent.setup();
+    vi.mocked(apiClient.availableRides)
+      .mockResolvedValueOnce({ rides: [RIDE] })
+      .mockResolvedValue({ rides: [] });
+    vi.mocked(apiClient.acceptRide).mockRejectedValue(
+      new Error("This ride has already been accepted"),
+    );
+
+    renderWithQueryClient(<AvailableRidesList />);
+
+    await user.click(await screen.findByRole("button", { name: "Accept" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "This ride has already been accepted",
+    );
+    expect(await screen.findByText("No pending rides right now.")).toBeInTheDocument();
+    expect(screen.queryByText("Liberty Market")).not.toBeInTheDocument();
+  });
 });

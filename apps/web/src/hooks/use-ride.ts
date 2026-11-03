@@ -1,6 +1,6 @@
 "use client";
 
-import type { Ride, RideStatus } from "@ride/contracts";
+import type { Ride, RideListQuery, RideStatus } from "@ride/contracts";
 import { useQuery } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api";
 
@@ -17,5 +17,12 @@ export function useRide(rideId: string | null) {
       if (!ride) return POLL_INTERVAL_MS;
       return TERMINAL_STATUSES.has(ride.status) ? false : POLL_INTERVAL_MS;
     },
+  });
+}
+
+export function useRideHistory(query: Partial<RideListQuery> = {}) {
+  return useQuery({
+    queryKey: ["rides", "history", query],
+    queryFn: () => apiClient.listRides(query),
   });
 }

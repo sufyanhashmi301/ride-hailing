@@ -1,6 +1,6 @@
 "use client";
 
-import type { Ride, RideStatus } from "@ride/contracts";
+import type { Ride, RideListQuery, RideStatus } from "@ride/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api";
 
@@ -43,5 +43,12 @@ export function useAvailableRides(enabled: boolean) {
     queryFn: () => apiClient.availableRides(),
     enabled,
     refetchInterval: enabled ? POLL_INTERVAL_MS : false,
+  });
+}
+
+export function useDriverRideHistory(query: Partial<RideListQuery> = {}) {
+  return useQuery({
+    queryKey: ["driver", "rides", "history", query],
+    queryFn: () => apiClient.driverRides(query),
   });
 }

@@ -23,7 +23,10 @@ test("rider requests a ride and a driver accepts and completes it", async ({ bro
 
   try {
     await login(riderPage, "rider1@ride.local");
-    await expect(riderPage).toHaveURL(/\/rider/);
+    await expect(riderPage).toHaveURL(/\/rider$/);
+
+    await riderPage.getByRole("link", { name: "Book a ride" }).click();
+    await expect(riderPage).toHaveURL(/\/rider\/book/);
 
     await pickPlace(riderPage, "Pickup", "Liberty Market");
     await pickPlace(riderPage, "Dropoff", "Packages Mall");

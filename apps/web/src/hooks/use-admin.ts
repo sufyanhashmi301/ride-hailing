@@ -1,6 +1,6 @@
 "use client";
 
-import type { CreateDriverRequest } from "@ride/contracts";
+import type { AdminRideListQuery, CreateDriverRequest } from "@ride/contracts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClient } from "@/lib/api";
 
@@ -15,6 +15,20 @@ export function useAdminCities() {
   return useQuery({
     queryKey: ["admin", "cities"],
     queryFn: () => apiClient.listCities(),
+  });
+}
+
+export function useAdminStats() {
+  return useQuery({
+    queryKey: ["admin", "stats"],
+    queryFn: () => apiClient.adminStats(),
+  });
+}
+
+export function useAdminRides(query: Partial<AdminRideListQuery> = {}) {
+  return useQuery({
+    queryKey: ["admin", "rides", query],
+    queryFn: () => apiClient.adminRides(query),
   });
 }
 
