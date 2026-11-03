@@ -19,7 +19,7 @@ import {
   isWithinBounds,
   transition,
 } from "@ride/domain";
-import { and, eq, inArray, isNull, or } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, or } from "drizzle-orm";
 import {
   ApiError,
   activeRideExists,
@@ -306,6 +306,51 @@ export async function getRide(
   return detail;
 }
 
+export interface RideListPagination {
+  limit: number;
+  offset: number;
+}
+
+export async function listRidesForRider(db: Db, riderId: string, pagination: RideListPagination) {
+  const rows = await db
+    .select({ ride: rides, fare: fares, driverId: rideAssignments.driverId })
+    .from(rides)
+    .innerJoin(fares, eq(fares.rideId, rides.id))
+    .leftJoin(rideAssignments, eq(rideAssignments.rideId, rides.id))
+    .where(eq(rides.riderId, riderId))
+    .orderBy(desc(rides.requestedAt))
+    .limit(pagination.limit)
+    .offset(pagination.offset);
+
+  const driverIds = [
+    ...new Set(rows.map((row) => row.driverId).filter((id): id is string => id !== null)),
+  ];
+  const driverRows = driverIds.length
+    ? await db
+        .select({
+          id: drivers.userId,
+          name: users.name,
+          phone: users.phone,
+          vehicleCategory: drivers.vehicleCategory,
+          vehiclePlate: drivers.vehiclePlate,
+        })
+        .from(drivers)
+        .innerJoin(users, eq(users.id, drivers.userId))
+        .where(inArray(drivers.userId, driverIds))
+    : [];
+  const driverMap = new Map(driverRows.map((driver) => [driver.id, driver]));
+
+  const rideDtos = rows.map((row) =>
+    toRideDto({
+      ride: row.ride,
+      fare: row.fare,
+      driver: row.driverId ? (driverMap.get(row.driverId) ?? null) : null,
+    }),
+  );
+
+  return { rides: rideDtos, limit: pagination.limit, offset: pagination.offset };
+}
+
 function toInvalidTransitionApiError(error: InvalidRideTransitionError): ApiError {
   return new ApiError(409, "INVALID_TRANSITION", error.message, {
     from: error.from,
@@ -359,12 +404,15 @@ export async function completeRide(db: Db, rideId: string, driverId: string): Pr
     const [ride] = await tx.select().from(rides).where(eq(rides.id, rideId)).for("update");
     if (!ride) throw notFound("Ride not found");
 
+    // Include ended assignments so a retry by the driver who already completed (or whose ride was
+    // cancelled) gets 409 INVALID_TRANSITION from the state machine, not a misleading 403.
     const [assignment] = await tx
       .select()
       .from(rideAssignments)
-      .where(and(eq(rideAssignments.rideId, rideId), isNull(rideAssignments.endedAt)))
+      .where(and(eq(rideAssignments.rideId, rideId), eq(rideAssignments.driverId, driverId)))
+      .orderBy(desc(rideAssignments.assignedAt))
       .limit(1);
-    if (!assignment || assignment.driverId !== driverId) {
+    if (!assignment) {
       throw forbidden("You are not the assigned driver for this ride");
     }
 

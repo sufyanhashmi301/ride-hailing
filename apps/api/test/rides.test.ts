@@ -602,4 +602,58 @@ describe("ride routes", () => {
       expect(response.json().error.code).toBe("INVALID_TRANSITION");
     });
   });
+
+  describe("GET /rides", () => {
+    it("lists only the caller's own rides, most recent first", async () => {
+      const { token } = await riderToken();
+
+      const first = await app.inject({
+        method: "POST",
+        url: "/api/v1/rides",
+        headers: { ...bearer(token), "idempotency-key": randomUUID() },
+        payload: rideBody(),
+      });
+      expect(first.statusCode).toBe(201);
+      await app.inject({
+        method: "POST",
+        url: `/api/v1/rides/${first.json().id}/cancel`,
+        headers: bearer(token),
+        payload: {},
+      });
+
+      const second = await app.inject({
+        method: "POST",
+        url: "/api/v1/rides",
+        headers: { ...bearer(token), "idempotency-key": randomUUID() },
+        payload: rideBody(),
+      });
+      expect(second.statusCode).toBe(201);
+
+      const { token: otherToken } = await riderToken();
+      await app.inject({
+        method: "POST",
+        url: "/api/v1/rides",
+        headers: { ...bearer(otherToken), "idempotency-key": randomUUID() },
+        payload: rideBody(),
+      });
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/rides",
+        headers: bearer(token),
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = response.json();
+      expect(body.rides.map((r: { id: string }) => r.id)).toEqual([
+        second.json().id,
+        first.json().id,
+      ]);
+    });
+
+    it("rejects unauthenticated callers", async () => {
+      const response = await app.inject({ method: "GET", url: "/api/v1/rides" });
+      expect(response.statusCode).toBe(401);
+    });
+  });
 });

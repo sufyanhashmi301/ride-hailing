@@ -202,5 +202,120 @@ describe("driver routes", () => {
 
       expect(response.statusCode).toBe(403);
     });
+
+    it("returns 409 INVALID_TRANSITION when the assigned driver completes the same ride twice", async () => {
+      const ride = await createRequestedRide("economy");
+      const { user } = await seedDriver(db, cityId, { vehicleCategory: "economy", isOnline: true });
+      const token = await loginAs(app, user.email);
+
+      await app.inject({
+        method: "POST",
+        url: `/api/v1/rides/${ride.id}/accept`,
+        headers: bearer(token),
+      });
+      const first = await app.inject({
+        method: "POST",
+        url: `/api/v1/rides/${ride.id}/complete`,
+        headers: bearer(token),
+      });
+      expect(first.statusCode).toBe(200);
+
+      const retry = await app.inject({
+        method: "POST",
+        url: `/api/v1/rides/${ride.id}/complete`,
+        headers: bearer(token),
+      });
+
+      expect(retry.statusCode).toBe(409);
+      expect(retry.json().error.code).toBe("INVALID_TRANSITION");
+      expect(retry.json().error.details).toMatchObject({ from: "completed", to: "completed" });
+    });
+
+    it("returns 409 INVALID_TRANSITION when the assigned driver completes a ride the rider cancelled", async () => {
+      const rider = await seedUser(db, "rider");
+      const riderToken = await loginAs(app, rider.email);
+      const created = await app.inject({
+        method: "POST",
+        url: "/api/v1/rides",
+        headers: { ...bearer(riderToken), "idempotency-key": randomUUID() },
+        payload: { category: "economy", pickup: PICKUP, dropoff: DROPOFF },
+      });
+      const ride = created.json();
+
+      const { user } = await seedDriver(db, cityId, { vehicleCategory: "economy", isOnline: true });
+      const driverToken = await loginAs(app, user.email);
+      await app.inject({
+        method: "POST",
+        url: `/api/v1/rides/${ride.id}/accept`,
+        headers: bearer(driverToken),
+      });
+      const cancel = await app.inject({
+        method: "POST",
+        url: `/api/v1/rides/${ride.id}/cancel`,
+        headers: bearer(riderToken),
+        payload: {},
+      });
+      expect(cancel.statusCode).toBe(200);
+
+      const response = await app.inject({
+        method: "POST",
+        url: `/api/v1/rides/${ride.id}/complete`,
+        headers: bearer(driverToken),
+      });
+
+      expect(response.statusCode).toBe(409);
+      expect(response.json().error.code).toBe("INVALID_TRANSITION");
+      expect(response.json().error.details).toMatchObject({ from: "cancelled", to: "completed" });
+    });
+  });
+
+  describe("GET /driver/rides", () => {
+    it("lists only rides this driver was assigned to", async () => {
+      const ride = await createRequestedRide("economy");
+      const { user } = await seedDriver(db, cityId, { vehicleCategory: "economy", isOnline: true });
+      const token = await loginAs(app, user.email);
+
+      await app.inject({
+        method: "POST",
+        url: `/api/v1/rides/${ride.id}/accept`,
+        headers: bearer(token),
+      });
+
+      const otherRide = await createRequestedRide("economy");
+      const { user: otherDriver } = await seedDriver(db, cityId, {
+        vehicleCategory: "economy",
+        isOnline: true,
+      });
+      const otherToken = await loginAs(app, otherDriver.email);
+      await app.inject({
+        method: "POST",
+        url: `/api/v1/rides/${otherRide.id}/accept`,
+        headers: bearer(otherToken),
+      });
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/driver/rides",
+        headers: bearer(token),
+      });
+
+      expect(response.statusCode).toBe(200);
+      const ids = response.json().rides.map((r: { id: string }) => r.id);
+      expect(ids).toContain(ride.id);
+      expect(ids).not.toContain(otherRide.id);
+    });
+
+    it("rejects non-drivers", async () => {
+      const rider = await seedUser(db, "rider");
+      const token = await loginAs(app, rider.email);
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/driver/rides",
+        headers: bearer(token),
+      });
+
+      expect(response.statusCode).toBe(403);
+    });
   });
 });

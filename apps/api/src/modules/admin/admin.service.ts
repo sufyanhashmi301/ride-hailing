@@ -11,7 +11,7 @@ import {
   rides,
   users,
 } from "@ride/db";
-import { desc, eq, inArray } from "drizzle-orm";
+import { count, desc, eq, inArray } from "drizzle-orm";
 import { ApiError, notFound, validationError } from "../../lib/api-error.js";
 import { isUniqueViolation, uniqueViolationConstraint } from "../../lib/postgres-errors.js";
 import { toRideDto } from "../rides/rides.service.js";
@@ -175,6 +175,27 @@ export async function updatePackage(
     .returning();
   if (!updated) throw notFound("Package not found");
   return updated;
+}
+
+const EMPTY_RIDE_STATUS_COUNTS: Record<RideStatus, number> = {
+  requested: 0,
+  accepted: 0,
+  completed: 0,
+  cancelled: 0,
+  expired: 0,
+};
+
+export async function getRideStatusCounts(db: Db): Promise<Record<RideStatus, number>> {
+  const rows = await db
+    .select({ status: rides.status, count: count() })
+    .from(rides)
+    .groupBy(rides.status);
+
+  const counts = { ...EMPTY_RIDE_STATUS_COUNTS };
+  for (const row of rows) {
+    counts[row.status] = row.count;
+  }
+  return counts;
 }
 
 export async function listRides(db: Db, input: ListRidesInput) {

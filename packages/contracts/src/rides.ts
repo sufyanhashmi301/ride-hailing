@@ -108,3 +108,16 @@ export const CurrentRideResponseSchema = z.object({
   ride: RideSchema.nullable(),
 });
 export type CurrentRideResponse = z.infer<typeof CurrentRideResponseSchema>;
+
+export const RideListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+export type RideListQuery = z.infer<typeof RideListQuerySchema>;
+
+export const RideListResponseSchema = z.object({
+  rides: z.array(RideSchema),
+  limit: z.number().int(),
+  offset: z.number().int(),
+});
+export type RideListResponse = z.infer<typeof RideListResponseSchema>;

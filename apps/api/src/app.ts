@@ -27,6 +27,18 @@ export async function buildApp(env: Env) {
   const app = Fastify({
     logger: {
       level: env.LOG_LEVEL,
+      redact: {
+        paths: [
+          "req.headers.authorization",
+          "req.headers.cookie",
+          'res.headers["set-cookie"]',
+          "*.password",
+          "*.passwordHash",
+          "*.token",
+          "*.temporaryPassword",
+        ],
+        censor: "[redacted]",
+      },
       ...(env.NODE_ENV === "development" ? { transport: { target: "pino-pretty" } } : {}),
     },
     genReqId: generateRequestId,

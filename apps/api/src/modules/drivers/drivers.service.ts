@@ -1,11 +1,12 @@
-import { type Db, drivers } from "@ride/db";
+import { type Db, drivers, fares, rideAssignments, rides, users } from "@ride/db";
 import { estimatePickupEtaSeconds } from "@ride/domain";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { notFound } from "../../lib/api-error.js";
 import {
   findActiveRideIdForDriver,
   findAvailableRidesForDriver,
 } from "../matching/matching.service.js";
+import type { RideListPagination } from "../rides/rides.service.js";
 import { getRide, toRideDto } from "../rides/rides.service.js";
 
 export interface UpdateDriverMeInput {
@@ -67,4 +68,33 @@ export async function getCurrentRide(db: Db, driverId: string) {
 
   const detail = await getRide(db, rideId, { id: driverId, role: "driver" });
   return toRideDto(detail);
+}
+
+export async function listRidesForDriver(db: Db, driverId: string, pagination: RideListPagination) {
+  const self = await getDriverMe(db, driverId);
+  const [selfUser] = await db.select().from(users).where(eq(users.id, driverId)).limit(1);
+  if (!selfUser) throw notFound("Driver profile not found");
+  const driverDto = {
+    id: driverId,
+    name: selfUser.name,
+    phone: selfUser.phone,
+    vehicleCategory: self.vehicleCategory,
+    vehiclePlate: self.vehiclePlate,
+  };
+
+  const rows = await db
+    .select({ ride: rides, fare: fares })
+    .from(rideAssignments)
+    .innerJoin(rides, eq(rides.id, rideAssignments.rideId))
+    .innerJoin(fares, eq(fares.rideId, rides.id))
+    .where(eq(rideAssignments.driverId, driverId))
+    .orderBy(desc(rides.requestedAt))
+    .limit(pagination.limit)
+    .offset(pagination.offset);
+
+  const rideDtos = rows.map((row) =>
+    toRideDto({ ride: row.ride, fare: row.fare, driver: driverDto }),
+  );
+
+  return { rides: rideDtos, limit: pagination.limit, offset: pagination.offset };
 }

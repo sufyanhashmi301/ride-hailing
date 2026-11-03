@@ -2,6 +2,8 @@ import {
   AvailableRidesResponseSchema,
   CurrentRideResponseSchema,
   DriverMeResponseSchema,
+  RideListQuerySchema,
+  RideListResponseSchema,
   UpdateDriverMeRequestSchema,
 } from "@ride/contracts";
 import type { Db } from "@ride/db";
@@ -14,6 +16,7 @@ import {
   getCurrentRide,
   getDriverMe,
   listAvailableRides,
+  listRidesForDriver,
   updateDriverMe,
 } from "./drivers.service.js";
 
@@ -61,6 +64,18 @@ export function registerDriversRoutes(app: App, db: Db, env: Env) {
     handler: async (request) => {
       const ride = await getCurrentRide(db, currentUser(request).sub);
       return { ride };
+    },
+  });
+
+  app.get("/api/v1/driver/rides", {
+    preHandler: requireRole("driver"),
+    schema: {
+      querystring: RideListQuerySchema,
+      response: { 200: RideListResponseSchema },
+    },
+    handler: async (request) => {
+      const driverId = currentUser(request).sub;
+      return listRidesForDriver(db, driverId, request.query);
     },
   });
 }

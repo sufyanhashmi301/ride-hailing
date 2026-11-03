@@ -6,6 +6,8 @@ import {
   type AdminRideListQuery,
   type AdminRideListResponse,
   AdminRideListResponseSchema,
+  type AdminStatsResponse,
+  AdminStatsResponseSchema,
   type AvailableRidesResponse,
   AvailableRidesResponseSchema,
   type CancelRideRequest,
@@ -30,6 +32,9 @@ import {
   type PlacesResponse,
   PlacesResponseSchema,
   type Ride,
+  type RideListQuery,
+  type RideListResponse,
+  RideListResponseSchema,
   RideSchema,
   type UpdateDriverMeRequest,
   type UpdateDriverStatusRequest,
@@ -154,6 +159,15 @@ export class ApiClient {
     return this.request("GET", `/rides/${id}`, RideSchema);
   }
 
+  listRides(query: Partial<RideListQuery> = {}): Promise<RideListResponse> {
+    return this.request("GET", "/rides", RideListResponseSchema, {
+      query: {
+        limit: query.limit?.toString(),
+        offset: query.offset?.toString(),
+      },
+    });
+  }
+
   cancelRide(id: string, body: CancelRideRequest = {}): Promise<Ride> {
     return this.request("POST", `/rides/${id}/cancel`, RideSchema, { body });
   }
@@ -180,6 +194,15 @@ export class ApiClient {
 
   currentRide(): Promise<CurrentRideResponse> {
     return this.request("GET", "/driver/rides/current", CurrentRideResponseSchema);
+  }
+
+  driverRides(query: Partial<RideListQuery> = {}): Promise<RideListResponse> {
+    return this.request("GET", "/driver/rides", RideListResponseSchema, {
+      query: {
+        limit: query.limit?.toString(),
+        offset: query.offset?.toString(),
+      },
+    });
   }
 
   createDriver(body: CreateDriverRequest): Promise<CreateDriverResponse> {
@@ -215,5 +238,9 @@ export class ApiClient {
         offset: query.offset?.toString(),
       },
     });
+  }
+
+  adminStats(): Promise<AdminStatsResponse> {
+    return this.request("GET", "/admin/stats", AdminStatsResponseSchema);
   }
 }

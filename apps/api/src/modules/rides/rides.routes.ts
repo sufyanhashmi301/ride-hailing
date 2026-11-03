@@ -3,6 +3,8 @@ import {
   CreateRideRequestSchema,
   EstimateRequestSchema,
   EstimateResponseSchema,
+  RideListQuerySchema,
+  RideListResponseSchema,
   RideSchema,
 } from "@ride/contracts";
 import type { Db } from "@ride/db";
@@ -19,6 +21,7 @@ import {
   createRide,
   estimateRide,
   getRide,
+  listRidesForRider,
   toRideDto,
 } from "./rides.service.js";
 
@@ -55,6 +58,18 @@ export function registerRidesRoutes(app: App, db: Db, env: Env) {
       const { detail, created } = await createRide(db, rider, idempotencyKey, request.body);
       reply.code(created ? 201 : 200);
       return toRideDto(detail);
+    },
+  });
+
+  app.get("/api/v1/rides", {
+    preHandler: requireRole("rider"),
+    schema: {
+      querystring: RideListQuerySchema,
+      response: { 200: RideListResponseSchema },
+    },
+    handler: async (request) => {
+      const riderId = currentUser(request).sub;
+      return listRidesForRider(db, riderId, request.query);
     },
   });
 

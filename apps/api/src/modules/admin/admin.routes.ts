@@ -3,6 +3,7 @@ import {
   AdminDriversResponseSchema,
   AdminRideListQuerySchema,
   AdminRideListResponseSchema,
+  AdminStatsResponseSchema,
   CreateDriverRequestSchema,
   CreateDriverResponseSchema,
   UpdateDriverStatusRequestSchema,
@@ -18,6 +19,7 @@ import { requireRole } from "../../plugins/rbac.js";
 import type { App } from "../../types.js";
 import {
   createDriver,
+  getRideStatusCounts,
   listActiveCities,
   listDrivers,
   listRides,
@@ -101,6 +103,17 @@ export function registerAdminRoutes(app: App, db: Db, env: Env) {
     },
     handler: async (request) => {
       return listRides(db, request.query);
+    },
+  });
+
+  app.get("/api/v1/admin/stats", {
+    preHandler: requireRole("admin"),
+    schema: {
+      response: { 200: AdminStatsResponseSchema },
+    },
+    handler: async () => {
+      const rideStatusCounts = await getRideStatusCounts(db);
+      return { rideStatusCounts };
     },
   });
 }

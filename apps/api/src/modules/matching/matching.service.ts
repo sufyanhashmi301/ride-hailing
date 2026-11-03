@@ -1,6 +1,6 @@
 import type { RideCategory } from "@ride/contracts";
 import { type Db, drivers, fares, rideAssignments, rides, users } from "@ride/db";
-import { haversineDistanceMeters } from "@ride/domain";
+import { estimatePickupEtaSeconds, haversineDistanceMeters } from "@ride/domain";
 import { and, asc, eq, isNull } from "drizzle-orm";
 
 export interface EligibleDriver {
@@ -52,7 +52,7 @@ export async function nearestPickupEtaSeconds(
   if (withLocation.length === 0) return null;
 
   const etas = withLocation.map((driver) =>
-    haversineDistanceMeters({ lat: driver.lastLat, lng: driver.lastLng }, pickup),
+    estimatePickupEtaSeconds({ lat: driver.lastLat, lng: driver.lastLng }, pickup),
   );
   return Math.min(...etas);
 }

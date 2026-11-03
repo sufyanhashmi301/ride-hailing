@@ -99,3 +99,14 @@ export const AdminRideListResponseSchema = z.object({
   offset: z.number().int(),
 });
 export type AdminRideListResponse = z.infer<typeof AdminRideListResponseSchema>;
+
+export const AdminStatsResponseSchema = z.object({
+  rideStatusCounts: z.object({
+    requested: z.number().int().nonnegative(),
+    accepted: z.number().int().nonnegative(),
+    completed: z.number().int().nonnegative(),
+    cancelled: z.number().int().nonnegative(),
+    expired: z.number().int().nonnegative(),
+  }),
+});
+export type AdminStatsResponse = z.infer<typeof AdminStatsResponseSchema>;

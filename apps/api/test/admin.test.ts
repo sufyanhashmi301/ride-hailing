@@ -321,4 +321,48 @@ describe("admin routes", () => {
       expect(response.statusCode).toBe(403);
     });
   });
+
+  describe("GET /admin/stats", () => {
+    it("counts a newly requested ride under its status", async () => {
+      const rider = await seedUser(db, "rider");
+      const riderToken = await loginAs(app, rider.email);
+
+      const before = await app.inject({
+        method: "GET",
+        url: "/api/v1/admin/stats",
+        headers: bearer(adminToken),
+      });
+      const beforeRequested = before.json().rideStatusCounts.requested;
+
+      const created = await app.inject({
+        method: "POST",
+        url: "/api/v1/rides",
+        headers: { ...bearer(riderToken), "idempotency-key": randomUUID() },
+        payload: { category: "economy", pickup: PICKUP, dropoff: DROPOFF },
+      });
+      expect(created.statusCode).toBe(201);
+
+      const after = await app.inject({
+        method: "GET",
+        url: "/api/v1/admin/stats",
+        headers: bearer(adminToken),
+      });
+
+      expect(after.statusCode).toBe(200);
+      expect(after.json().rideStatusCounts.requested).toBe(beforeRequested + 1);
+    });
+
+    it("rejects non-admin callers", async () => {
+      const rider = await seedUser(db, "rider");
+      const token = await loginAs(app, rider.email);
+
+      const response = await app.inject({
+        method: "GET",
+        url: "/api/v1/admin/stats",
+        headers: bearer(token),
+      });
+
+      expect(response.statusCode).toBe(403);
+    });
+  });
 });
